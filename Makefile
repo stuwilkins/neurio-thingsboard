@@ -1,27 +1,17 @@
-CC			= gcc
-LD			= gcc
-CFLAGS		= -I. -std=c99
-LDFLAGS		= -lconfig -lpaho-mqtt3a -lcurl -ljson-c -lm
-DEPS		= neurio.h
-PROG_NAME   = neurio-thingsboard
+INSTALL = /usr/bin/install -c
+INSTALLDATA = /usr/bin/install -c -m 644
+SUBDIRS = src
 
-SRC_DIR     = ./src
-BUILD_DIR   = ./build
-BIN_DIR     = ./bin
+ifeq ($(PREFIX),)
+	PREFIX := /usr/local
+endif
 
-SRC_LIST = $(wildcard $(SRC_DIR)/*.c)
-OBJ_LIST = $(BUILD_DIR)/$(notdir $(SRC_LIST:.c=.o))
+.PHONY: $(SUBDIRS) all install
 
-.PHONY: clean all $(PROG_NAME) compile
+all: $(SUBDIRS)
 
-all: $(PROG_NAME)
+$(SUBDIRS):
+		$(MAKE) -C $@
 
-compile:
-	$(CC) -c $(CFLAGS) $(SRC_LIST) -o $(OBJ_LIST)
-
-$(PROG_NAME): compile
-	$(LD) $(LDFLAGS) $(OBJ_LIST) -o $(BIN_DIR)/$@
-
-
-clean:
-	rm -f $(obj) ../bin/neurio-thingsboard
+install: neurio-thingsboard
+	$(INSTALL) -m 0755 bin/neurio-thingsboard $(PREFIX)/bin
