@@ -39,7 +39,6 @@ static int verbose_flag = 1;
 static int verbose_flag = 0;
 #endif
 
-
 int string_to_epoch(const char* str, unsigned long *epoch)
 {
   struct tm _ts;
@@ -125,6 +124,30 @@ int get_neurio_data(struct DataStruct *data)
   return true;
 }
 
+int calculate_single(struct sensor_reading *reading)
+{
+  double phi;
+
+  phi = atan2(reading->Q, reading->P);
+  debug_print("phi = %lf\n", phi);
+
+  reading->phi = phi * 180 / M_PI;
+  reading->S = sqrt(pow(reading->P, 2) + pow(reading->Q, 2));
+  reading->pf = fabs(cos(phi));
+  reading->I = reading->P / (reading->V * cos(phi));
+
+  return true;
+}
+
+int calculate_total(struct sensor_reading *reading)
+{
+  int n = NUM_SENSORS;
+  reading[n].V = reading[0].V + reading[1].V; 
+  reading[n].P = reading[0].P + reading[1].P; 
+  reading[n].Q = reading[0].Q + reading[1].Q; 
+  return true;
+}
+
 int parse_neurio_data(struct DataStruct *data)
 {
   struct json_object *jobj;
@@ -179,15 +202,30 @@ int parse_neurio_data(struct DataStruct *data)
     data->reading[n].V = json_object_get_double(v_V);
     data->reading[n].P = json_object_get_double(p_W);
     data->reading[n].Q = json_object_get_double(q_VAR);
-    data->reading[n].phi = asin(data->reading[i].Q / data->reading[n].P) * 180.0 / M_PI;
-    data->reading[n].pf = data->reading[n].P / pow(pow(data->reading[n].P,2) + pow(data->reading[n].Q,2), 0.5);
 
-    debug_print("%d : V\t=%lf\n", n, data->reading[n].V);
-    debug_print("%d : W\t=%lf\n", n, data->reading[n].P);
-    debug_print("%d : Q\t=%lf\n", n, data->reading[n].Q);
-    debug_print("%d : phi\t=%lf deg\n", n, data->reading[n].phi * 180.0 / M_PI);
-    debug_print("%d : pf\t=%lf deg\n", n, data->reading[n].pf);
+    debug_print("%d : V\t=%lf V\n", n, data->reading[n].V);
+    debug_print("%d : W\t=%lf W\n", n, data->reading[n].P);
+    debug_print("%d : Q\t=%lf W\n", n, data->reading[n].Q);
+
+    calculate_single(&data->reading[n]);
+
+    debug_print("%d : S\t=%lf W\n", n, data->reading[n].S);
+    debug_print("%d : phi\t=%lf deg\n", n, data->reading[n].phi);
+    debug_print("%d : pf\t=%lf\n", n, data->reading[n].pf);
+    debug_print("%d : I\t=%lf A\n", n, data->reading[n].I);
   }
+
+  calculate_total(data->reading);
+
+  int n = NUM_SENSORS;
+  calculate_single(&data->reading[n]);
+  debug_print("total : V\t=%lf\n", data->reading[n].V);
+  debug_print("total : W\t=%lf\n", data->reading[n].P);
+  debug_print("total : Q\t=%lf\n", data->reading[n].Q);
+  debug_print("total : S\t=%lf W\n", data->reading[n].S);
+  debug_print("total : phi\t=%lf deg\n", data->reading[n].phi);
+  debug_print("total : pf\t=%lf\n", data->reading[n].pf);
+  debug_print("total : I\t=%lf A\n", data->reading[n].I);
 
   return true;
 }
@@ -215,8 +253,16 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
       name, i + 1, reading->pf);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_phi\":\"%lf\"",
+      "\"%s%d_phi\":\"%lf\",",
       name, i + 1, reading->phi);
+  strncat(buffer, _buffer, PAYLOAD_MAX-1);
+  snprintf(_buffer, PAYLOAD_MAX, 
+      "\"%s%d_S\":\"%lf\",",
+      name, i + 1, reading->S);
+  strncat(buffer, _buffer, PAYLOAD_MAX-1);
+  snprintf(_buffer, PAYLOAD_MAX, 
+      "\"%s%d_I\":\"%lf\"",
+      name, i + 1, reading->I);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
 
   if(!last)
@@ -237,8 +283,9 @@ int publish_to_thingsboard(struct DataStruct *data)
 
   for(int i=0;i<NUM_SENSORS;i++)
   {
-    add_sensor(payload_buffer, "sensor", &data->reading[i], i, i == (NUM_SENSORS -1));
+    add_sensor(payload_buffer, "sensor", &data->reading[i], i, 0);
   }
+  add_sensor(payload_buffer, "total", &data->reading[NUM_SENSORS], 0, 1);
 
   strncat(payload_buffer, "}}", PAYLOAD_MAX-1);
   debug_print("payload [%d] : %s\n", (int)strlen(payload_buffer), payload_buffer);

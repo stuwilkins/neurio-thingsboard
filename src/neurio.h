@@ -54,6 +54,8 @@ struct sensor_reading {
   double P;
   double Q;
   double V;
+  double S;
+  double I;
   double phi;
   double pf;
 };
@@ -78,7 +80,7 @@ struct DataStruct {
 
   // Data
   unsigned long timestamp;
-  struct sensor_reading reading[NUM_SENSORS]; 
+  struct sensor_reading reading[NUM_SENSORS + 1]; 
   struct sensor_reading calc;
 };
 
