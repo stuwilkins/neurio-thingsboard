@@ -51,7 +51,12 @@ int string_to_epoch(const char* str, unsigned long *epoch)
   memset(&_ts, 0, sizeof(struct tm));
 
   _tz = strptime(str, "%FT%T", &_ts); 
-  debug_print("strptime returned with \"%s\"\n", _tz);
+
+#ifdef DEBUG
+  char _buf[80];
+  strftime(_buf, 80, "%Y:%m:%d %H:%M:%S", &_ts);
+  debug_print("strptime returned with \"%s\" to time %s\n", _tz, _buf);
+#endif
 
   if(strcmp(_tz, "Z"))
   {
