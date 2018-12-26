@@ -44,17 +44,16 @@ int string_to_epoch(const char* str, unsigned long *epoch)
 {
   struct tm _ts;
   char *_tz;
-  char buf[255];
 
   tzset();
   debug_statement("tzset()\n");
   memset(&_ts, 0, sizeof(struct tm));
 
-  _tz = strptime(str, "%FT%T", &_ts); 
+  _tz = strptime(str, "%Y-%m-%dT%H:%M:%S", &_ts); 
 
 #ifdef DEBUG
   char _buf[80];
-  strftime(_buf, 80, "%Y:%m:%d %H:%M:%S", &_ts);
+  strftime(_buf, 80, "%Y-%m-%d %H:%M:%S", &_ts);
   debug_print("strptime returned with \"%s\" to time %s\n", _tz, _buf);
 #endif
 
@@ -63,10 +62,7 @@ int string_to_epoch(const char* str, unsigned long *epoch)
     return false;
   }
 
-  strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", &_ts);
   *epoch = (unsigned long)mktime(&_ts) - timezone;
-
-  debug_print("Timestamp = %s\n", buf);
   debug_print("Unix timestamp = %ld\n", *epoch);
 
   return true;
