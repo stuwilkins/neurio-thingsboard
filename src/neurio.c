@@ -95,15 +95,20 @@ int get_neurio_data(struct DataStruct *data)
 
   char _host[STR_MAX];
   snprintf(_host, STR_MAX, "http://%s/current-sample", data->neurio_host);
+  debug_print("host = %s\n", _host);
 
   curl_handle = curl_easy_init();
   curl_easy_setopt(curl_handle, CURLOPT_URL, _host);
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)data);
   curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+  
+  debug_statement("Setup curl\n");
 
   data->raw_size = 0;
   res = curl_easy_perform(curl_handle);
+
+  debug_statement("Finished curl\n");
 
   curl_easy_cleanup(curl_handle);
 
@@ -119,6 +124,9 @@ int get_neurio_data(struct DataStruct *data)
 int parse_neurio_data(struct DataStruct *data)
 {
   struct json_object *jobj;
+
+  debug_statement("Parsing neurio data ....\n");
+
   jobj = json_tokener_parse(data->raw_data);
 
   //debug_print("jobj from str:\n---\n%s\n---\n", 
@@ -130,6 +138,7 @@ int parse_neurio_data(struct DataStruct *data)
   json_object_object_get_ex(jobj, "timestamp", &ts);
   const char *_tss;
   _tss = json_object_get_string(ts);
+  debug_print("Timestamp = %s\n", _tss);
 
   string_to_epoch(_tss, &data->timestamp);
 
@@ -138,6 +147,7 @@ int parse_neurio_data(struct DataStruct *data)
 
   int arraylen;
   arraylen = json_object_array_length(cts);
+  debug_print("arraylen = %d\n", arraylen);
 
   if(arraylen < NUM_SENSORS)
   {
