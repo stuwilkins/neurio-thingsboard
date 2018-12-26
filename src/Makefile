@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-I. -std=c99
-LDFLAGS=-lconfig -lpaho-mqtt3a -lcurl -ljson-c -lm
+CFLAGS=-I. -Wall -O3 -std=c99
+LDFLAGS=-lconfig -lpaho-mqtt3c -lcurl -ljson-c -lm 
 DEPS=neurio.h
 src = $(wildcard *.c)
 obj = $(src:.c=.o)
