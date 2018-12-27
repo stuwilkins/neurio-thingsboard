@@ -62,8 +62,9 @@ struct sensor_reading {
 
 struct DataStruct {
   // For raw data
-  char *raw_data;
-  size_t raw_size;
+  char *buffer;
+  size_t buffer_counter;
+  size_t buffer_size;
 
   // For update
   struct timespec sleep;

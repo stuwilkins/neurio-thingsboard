@@ -45,7 +45,6 @@ int string_to_epoch(const char* str, unsigned long *epoch)
   char *_tz;
 
   tzset();
-  debug_statement("tzset()\n");
   memset(&_ts, 0, sizeof(struct tm));
 
   _tz = strptime(str, "%Y-%m-%dT%H:%M:%S", &_ts); 
@@ -71,21 +70,20 @@ static size_t
 WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 {
   size_t realsize = size * nmemb;
-  struct DataStruct *mem = (struct DataStruct *)userp;
-  char *ptr = realloc(mem->raw_data, mem->raw_size + realsize + 1);
+  struct DataStruct *data = (struct DataStruct *)userp;
 
-  debug_print("%p %d %d\n", ptr, (int)mem->raw_size, (int)realsize);
+  debug_print("size = %d, nmemb = %d\n", 
+      (int)size, (int)nmemb);
+  debug_print("buffer = %p, buffer_counter = %d\n", 
+      data->buffer, (int)data->buffer_counter);
 
-  if(ptr == NULL) {
-    // Out of memory!
-    debug_print("not enough memory (realloc returned NULL to %ld)\n", (long int)(size*nmemb));
+  if((realsize + data->buffer_counter) >= data->buffer_size){
     return 0;
   }
 
-  mem->raw_data = ptr;
-  memcpy(&(mem->raw_data[mem->raw_size]), contents, realsize);
-  mem->raw_size += realsize;
-  mem->raw_data[mem->raw_size] = 0;
+  memcpy(&(data->buffer[data->buffer_counter]), contents, realsize);
+  data->buffer_counter += realsize;
+  data->buffer[data->buffer_counter] = 0; // Add null terminator
 
   return realsize;
 }
@@ -106,12 +104,8 @@ int get_neurio_data(struct DataStruct *data)
   curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)data);
   curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
   
-  debug_statement("Setup curl\n");
-
-  data->raw_size = 0;
+  data->buffer_counter = 0;
   res = curl_easy_perform(curl_handle);
-
-  debug_statement("Finished curl\n");
 
   curl_easy_cleanup(curl_handle);
 
@@ -154,7 +148,7 @@ int parse_neurio_data(struct DataStruct *data)
 
   debug_statement("Parsing neurio data ....\n");
 
-  jobj = json_tokener_parse(data->raw_data);
+  jobj = json_tokener_parse(data->buffer);
 
   //debug_print("jobj from str:\n---\n%s\n---\n", 
   //    json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED | 
@@ -329,8 +323,6 @@ int main(int argc, char* argv[])
 {
   struct DataStruct data;
 
-  data.raw_data =  NULL;
-  data.raw_size = 0;
 
   debug_statement("Starting .....\n");
 
@@ -342,6 +334,7 @@ int main(int argc, char* argv[])
   strncpy(data.mqtt_token, DEFAULT_MQTT_TOKEN, STR_MAX);
   data.sleep.tv_sec = DEFAULT_SLEEP;
   data.sleep.tv_nsec = 0;
+  data.buffer_size = 2048 * 1024;
 
   // Parse the command line
 
@@ -352,17 +345,18 @@ int main(int argc, char* argv[])
 		{
 			/* These options set a flag. */
 			{"verbose",   no_argument,       0, 'v'},
-			{"breif",     no_argument,       0, 'b'},
+			{"quiet",     no_argument,       0, 'q'},
 			{"token",     required_argument, 0, 't'},
 			{"host",      required_argument, 0, 'h'},
 			{"port",      required_argument, 0, 'p'},
 			{"neurio",    required_argument, 0, 'n'},
 			{"sleep",     required_argument, 0, 's'},
+			{"buffer",    required_argument, 0, 'b'},
 			{0, 0, 0, 0}
 		};
 
 		int option_index = 0;
-    int c = getopt_long(argc, argv, "vbt:h:p:n:s:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "qvb:t:h:p:n:s:", long_options, &option_index);
 
     if(c == -1)
     {
@@ -381,7 +375,7 @@ int main(int argc, char* argv[])
       case 'v':
         verbose_flag = 1;
         break;
-      case 'b':
+      case 'q':
         verbose_flag = 0;
         break;
       case 't':
@@ -414,6 +408,17 @@ int main(int argc, char* argv[])
     }
   }
 
+  // Allocate CURL buffer.
+
+  if(!(data.buffer = malloc(data.buffer_size)))
+  {
+    fprintf(stderr, "Unable to allocate memory for buffer.\n\n");
+    return EXIT_FAILURE;
+  }
+  data.buffer_counter = 0;
+  debug_print("Allocated buffer at %p of size %d\n", data.buffer, 
+      (int)data.buffer_size);
+
   // Make client ID
   snprintf(data.mqtt_client_id, STR_MAX, "%s_%ld", 
       MQTT_CLIENT_ID, (long int)getpid());
@@ -442,7 +447,6 @@ int main(int argc, char* argv[])
     nanosleep(&data.sleep, NULL);
   }
 
-  free(data.raw_data);
   curl_global_cleanup();
   MQTTClient_destroy(&data.client);
 
