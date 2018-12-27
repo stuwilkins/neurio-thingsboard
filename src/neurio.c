@@ -155,15 +155,18 @@ int parse_neurio_data(struct DataStruct *data)
 
   debug_statement("Parsed json OK...\n");
 
-  // Get the timestamp
-  struct json_object *ts;
-  const char *_tss;
+  if(data->use_timestamp)
+  {
+    // Get the timestamp
+    struct json_object *ts;
+    const char *_tss;
 
-  json_object_object_get_ex(jobj, "timestamp", &ts);
-  _tss = json_object_get_string(ts);
-  debug_print("Timestamp = %s\n", _tss);
+    json_object_object_get_ex(jobj, "timestamp", &ts);
+    _tss = json_object_get_string(ts);
+    debug_print("Timestamp = %s\n", _tss);
 
-  string_to_epoch(_tss, &data->timestamp);
+    string_to_epoch(_tss, &data->timestamp);
+  }
 
   // Get the sensors
   struct json_object *cts;
@@ -298,9 +301,15 @@ int publish_to_thingsboard(struct DataStruct *data)
   char payload_buffer[PAYLOAD_MAX] = "";
   char _buffer[PAYLOAD_MAX] = "";
 
-  snprintf(_buffer, PAYLOAD_MAX,
-      "{\"ts\":%lu000,\"values\":{", data->timestamp);
-  strncat(payload_buffer, _buffer, PAYLOAD_MAX-1);
+  if(data->use_timestamp)
+  {
+    snprintf(_buffer, PAYLOAD_MAX,
+        "{\"ts\":%lu000,\"values\":{", data->timestamp);
+    strncat(payload_buffer, _buffer, PAYLOAD_MAX-1);
+  } else {
+    strncat(payload_buffer, "{", PAYLOAD_MAX-1);
+  }
+
 
   for(int i=0;i<NUM_SENSORS;i++)
   {
@@ -310,7 +319,12 @@ int publish_to_thingsboard(struct DataStruct *data)
   }
   add_sensor(payload_buffer, "total", &data->reading[NUM_SENSORS], 1);
 
-  strncat(payload_buffer, "}}", PAYLOAD_MAX-1);
+  strncat(payload_buffer, "}", PAYLOAD_MAX-1);
+  if(data->use_timestamp)
+  {
+    strncat(payload_buffer, "}", PAYLOAD_MAX-1);
+  }
+
   debug_print("payload [%d] : %s\n", (int)strlen(payload_buffer), payload_buffer);
 
   MQTTClient_message pubmsg = MQTTClient_message_initializer;
@@ -355,6 +369,7 @@ int main(int argc, char* argv[])
   data.sleep.tv_sec = DEFAULT_SLEEP;
   data.sleep.tv_nsec = 0;
   data.buffer_size = 2048 * 1024;
+  data.use_timestamp = false;
 
   // Parse the command line
 
@@ -374,11 +389,12 @@ int main(int argc, char* argv[])
 			{"neurio",       required_argument, 0, 'n'},
 			{"sleep",        required_argument, 0, 's'},
 			{"buffer",       required_argument, 0, 'b'},
+			{"no-timestamp", no_argument      , 0, 'm'},
 			{0, 0, 0, 0}
 		};
 
 		int option_index = 0;
-    int c = getopt_long(argc, argv, "xyqvb:t:h:p:n:s:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "mxyqvb:t:h:p:n:s:", long_options, &option_index);
 
     if(c == -1)
     {
@@ -395,16 +411,19 @@ int main(int argc, char* argv[])
         debug_print("option %s", long_options[option_index].name);
         break;
       case 'x':
-        parse = 0;
+        parse = false;
         break;
       case 'y':
-        publish = 0;
+        publish = false;
         break;
       case 'v':
-        verbose_flag = 1;
+        verbose_flag = true;
         break;
       case 'q':
-        verbose_flag = 0;
+        verbose_flag = false;
+        break;
+      case 'm':
+        data.use_timestamp = false;
         break;
       case 't':
         strncpy(data.mqtt_token, optarg, STR_MAX);

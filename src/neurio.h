@@ -84,6 +84,7 @@ struct DataStruct {
   char neurio_host[STR_MAX];
 
   // Data
+  int use_timestamp;
   unsigned long timestamp;
   struct sensor_reading reading[NUM_SENSORS + 1]; 
   struct sensor_reading calc;
