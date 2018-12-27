@@ -138,15 +138,21 @@ int calculate_total(struct sensor_reading *reading)
 
 int parse_neurio_data(struct DataStruct *data)
 {
+  struct json_tokener *tok;
   struct json_object *jobj;
 
-  debug_statement("Parsing neurio data ....\n");
+  tok = json_tokener_new();
+  jobj = json_tokener_parse_ex(tok, data->buffer, strlen(data->buffer));
 
-  jobj = json_tokener_parse(data->buffer);
+  enum json_tokener_error jerr = json_tokener_get_error(tok);
+  if(jerr != json_tokener_success)
+  {
+    debug_print("Error parsing json : %s\n", json_tokener_error_desc(jerr));
+    json_tokener_free(tok);
+    return false;
+  }
 
-  //debug_print("jobj from str:\n---\n%s\n---\n", 
-  //    json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED | 
-  //      JSON_C_TO_STRING_PRETTY));
+  debug_statement("Parsed json OK...\n");
 
   // Get the timestamp
   struct json_object *ts;
@@ -166,6 +172,7 @@ int parse_neurio_data(struct DataStruct *data)
 
   if(arraylen < NUM_SENSORS)
   {
+    json_tokener_free(tok);
     return false;
   }
 
@@ -215,6 +222,7 @@ int parse_neurio_data(struct DataStruct *data)
   debug_print("total : pf\t=%lf\n", data->reading[n].pf);
   debug_print("total : I\t=%lf A\n", data->reading[n].I);
 
+  json_tokener_free(tok);
   return true;
 }
 
