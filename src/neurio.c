@@ -251,11 +251,11 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
       name, i + 1, reading->phi);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_S\":\"%lf\",",
+      "\"%s%d_app_power\":\"%lf\",",
       name, i + 1, reading->S);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_I\":\"%lf\"",
+      "\"%s%d_current\":\"%lf\"",
       name, i + 1, reading->I);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
 
