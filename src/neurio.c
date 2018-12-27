@@ -88,7 +88,6 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
   return realsize;
 }
 
-
 int get_neurio_data(struct DataStruct *data)
 {
   CURLcode res;
@@ -253,7 +252,6 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
 
 int publish_to_thingsboard(struct DataStruct *data)
 {
-  int rc;
   char payload_buffer[PAYLOAD_MAX] = "";
   char _buffer[PAYLOAD_MAX] = "";
 
@@ -272,38 +270,22 @@ int publish_to_thingsboard(struct DataStruct *data)
   strncat(payload_buffer, "}}", PAYLOAD_MAX-1);
   debug_print("payload [%d] : %s\n", (int)strlen(payload_buffer), payload_buffer);
 
-  MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
   MQTTClient_message pubmsg = MQTTClient_message_initializer;
-  MQTTClient_deliveryToken token;
-
-  conn_opts.keepAliveInterval = 20;
-  conn_opts.cleansession = 1;
-  conn_opts.username = data->mqtt_token;
-  conn_opts.password = "";
-
-  if ((rc = MQTTClient_connect(data->client, &conn_opts)) != MQTTCLIENT_SUCCESS)
-  {
-    printf("Failed to connect, return code %d\n", rc);
-    return false;
-  }
-
   pubmsg.payload = payload_buffer;
   pubmsg.payloadlen = strlen(payload_buffer);
   pubmsg.qos = QOS;
   pubmsg.retained = 0;
 
+  MQTTClient_deliveryToken token;
   MQTTClient_publishMessage(data->client, TOPIC, &pubmsg, &token);
 
   debug_print("Waiting for up to %d seconds for publication of %s\n"
       "on topic %s for client with ClientID: %s\n",
       (int)(TIMEOUT/1000), payload_buffer, TOPIC, data->mqtt_client_id);
 
-  rc = MQTTClient_waitForCompletion(data->client, token, TIMEOUT);
+  int rc = MQTTClient_waitForCompletion(data->client, token, TIMEOUT);
 
   debug_print("Message with delivery token %d delivered\n", token);
-
-  MQTTClient_disconnect(data->client, 10000);
-
   return true;
 }
 
@@ -436,6 +418,20 @@ int main(int argc, char* argv[])
   MQTTClient_create(&data.client, _address, data.mqtt_client_id,
       MQTTCLIENT_PERSISTENCE_NONE, NULL);
 
+  MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+
+  conn_opts.keepAliveInterval = 20;
+  conn_opts.cleansession = 1;
+  conn_opts.username = data.mqtt_token;
+  conn_opts.password = "";
+
+  int rc;
+  if ((rc = MQTTClient_connect(data.client, &conn_opts)) != MQTTCLIENT_SUCCESS)
+  {
+    printf("Failed to connect, return code %d\n", rc);
+    return false;
+  }
+
   for(;;)
   {
     if(!get_neurio_data(&data))
@@ -450,9 +446,11 @@ int main(int argc, char* argv[])
     nanosleep(&data.sleep, NULL);
   }
 
+
   curl_easy_cleanup(data.curl_handle);
   curl_global_cleanup();
 
+  MQTTClient_disconnect(data.client, 10000);
   MQTTClient_destroy(&data.client);
 
   return 0;
