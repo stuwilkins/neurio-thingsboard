@@ -225,38 +225,37 @@ int parse_neurio_data(struct DataStruct *data)
 }
 
 void add_sensor(char *buffer, const char* name, struct sensor_reading *reading, 
-    int i, int last)
+    int last)
 {
   char _buffer[PAYLOAD_MAX] = "";
 
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_voltage\":\"%lf\",",
-      name, i + 1, reading->V);
-  strncat(buffer, _buffer, PAYLOAD_MAX-1);
-
-  snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_real_power\":\"%lf\",",
-      name, i + 1, reading->P);
+      "\"%s_voltage\":\"%lf\",",
+      name, reading->V);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_imag_power\":\"%lf\",",
-      name, i + 1, reading->Q);
+      "\"%s_real_power\":\"%lf\",",
+      name, reading->P);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_pf\":\"%lf\",",
-      name, i + 1, reading->pf);
+      "\"%s_imag_power\":\"%lf\",",
+      name, reading->Q);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_phi\":\"%lf\",",
-      name, i + 1, reading->phi);
+      "\"%s_pf\":\"%lf\",",
+      name, reading->pf);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_app_power\":\"%lf\",",
-      name, i + 1, reading->S);
+      "\"%s_phi\":\"%lf\",",
+      name, reading->phi);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s%d_current\":\"%lf\"",
-      name, i + 1, reading->I);
+      "\"%s_app_power\":\"%lf\",",
+      name, reading->S);
+  strncat(buffer, _buffer, PAYLOAD_MAX-1);
+  snprintf(_buffer, PAYLOAD_MAX, 
+      "\"%s_current\":\"%lf\"",
+      name, reading->I);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
 
   if(!last)
@@ -277,9 +276,11 @@ int publish_to_thingsboard(struct DataStruct *data)
 
   for(int i=0;i<NUM_SENSORS;i++)
   {
-    add_sensor(payload_buffer, "sensor", &data->reading[i], i, 0);
+    char name[20];
+    snprintf(name, 20, "sensor%d", i + 1);
+    add_sensor(payload_buffer, name, &data->reading[i], 0);
   }
-  add_sensor(payload_buffer, "total", &data->reading[NUM_SENSORS], 0, 1);
+  add_sensor(payload_buffer, "total", &data->reading[NUM_SENSORS], 1);
 
   strncat(payload_buffer, "}}", PAYLOAD_MAX-1);
   debug_print("payload [%d] : %s\n", (int)strlen(payload_buffer), payload_buffer);
