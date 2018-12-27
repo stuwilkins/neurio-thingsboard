@@ -157,13 +157,16 @@ int parse_neurio_data(struct DataStruct *data)
 
   // Get the timestamp
   struct json_object *ts;
-  json_object_object_get_ex(jobj, "timestamp", &ts);
   const char *_tss;
+
+  json_object_object_get_ex(jobj, "timestamp", &ts);
   _tss = json_object_get_string(ts);
   debug_print("Timestamp = %s\n", _tss);
 
   string_to_epoch(_tss, &data->timestamp);
+  json_object_put(ts); // Decrement reference count
 
+  // Get the sensors
   struct json_object *cts;
   json_object_object_get_ex(jobj, "cts", &cts);
 
