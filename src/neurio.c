@@ -260,6 +260,7 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
 
 int publish_to_thingsboard(struct DataStruct *data)
 {
+  int rc;
   char payload_buffer[PAYLOAD_MAX] = "";
   char _buffer[PAYLOAD_MAX] = "";
 
@@ -285,13 +286,21 @@ int publish_to_thingsboard(struct DataStruct *data)
   pubmsg.retained = 0;
 
   MQTTClient_deliveryToken token;
-  MQTTClient_publishMessage(data->client, TOPIC, &pubmsg, &token);
+  rc = MQTTClient_publishMessage(data->client, TOPIC, &pubmsg, &token);
+  if(rc != MQTTCLIENT_SUCCESS)
+  {
+    debug_print("MQTTClient_publishMessage failed %d\n", rc);
+  }
 
   debug_print("Waiting for up to %d seconds for publication of %s\n"
       "on topic %s for client with ClientID: %s\n",
       (int)(TIMEOUT/1000), payload_buffer, TOPIC, data->mqtt_client_id);
 
-  int rc = MQTTClient_waitForCompletion(data->client, token, TIMEOUT);
+  rc = MQTTClient_waitForCompletion(data->client, token, TIMEOUT);
+  if(rc != MQTTCLIENT_SUCCESS)
+  {
+    debug_print("MQTTClient_waitForCompletion failed %d\n", rc);
+  }
 
   debug_print("Message with delivery token %d delivered\n", token);
   return true;
