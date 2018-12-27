@@ -91,23 +91,10 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 
 int get_neurio_data(struct DataStruct *data)
 {
-  CURL *curl_handle;
   CURLcode res;
 
-  char _host[STR_MAX];
-  snprintf(_host, STR_MAX, "http://%s/current-sample", data->neurio_host);
-  debug_print("host = %s\n", _host);
-
-  curl_handle = curl_easy_init();
-  curl_easy_setopt(curl_handle, CURLOPT_URL, _host);
-  curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-  curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)data);
-  curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
-  
   data->buffer_counter = 0;
-  res = curl_easy_perform(curl_handle);
-
-  curl_easy_cleanup(curl_handle);
+  res = curl_easy_perform(data->curl_handle);
 
   if(res != CURLE_OK) {
     debug_print("curl_easy_perform() failed: %s\n",
@@ -420,13 +407,28 @@ int main(int argc, char* argv[])
   debug_print("Allocated buffer at %p of size %d\n", data.buffer, 
       (int)data.buffer_size);
 
-  // Make client ID
+  // Setup cURL lib
+  curl_global_init(CURL_GLOBAL_NOTHING);
+  data.curl_handle = curl_easy_init();
+  if(!data.curl_handle)
+  {
+    fprintf(stderr, "Unable to setup cURL library.\n\n");
+    return EXIT_FAILURE;
+  }
+
+  char _host[STR_MAX];
+  snprintf(_host, STR_MAX, "http://%s/current-sample", data.neurio_host);
+  debug_print("cURL host = %s\n", _host);
+
+  curl_easy_setopt(data.curl_handle, CURLOPT_URL, _host);
+  curl_easy_setopt(data.curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+  curl_easy_setopt(data.curl_handle, CURLOPT_WRITEDATA, (void *)&data);
+  curl_easy_setopt(data.curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+  // Setup MQTT
   snprintf(data.mqtt_client_id, STR_MAX, "%s_%ld", 
       MQTT_CLIENT_ID, (long int)getpid());
   debug_print("mqtt_client_id = %s\n", data.mqtt_client_id);
-
-
-  curl_global_init(CURL_GLOBAL_ALL);
 
   char _address[STR_MAX];
   snprintf(_address, STR_MAX, "tcp://%s:%d", data.mqtt_host, data.mqtt_port);
@@ -448,7 +450,9 @@ int main(int argc, char* argv[])
     nanosleep(&data.sleep, NULL);
   }
 
+  curl_easy_cleanup(data.curl_handle);
   curl_global_cleanup();
+
   MQTTClient_destroy(&data.client);
 
   return 0;

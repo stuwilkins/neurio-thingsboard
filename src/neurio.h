@@ -20,6 +20,7 @@
 #define _NEURIO_H
 
 #include <MQTTClient.h>
+#include <curl/curl.h>
 
 #define M_PI                    3.14159265358979323846
 
@@ -61,6 +62,9 @@ struct sensor_reading {
 };
 
 struct DataStruct {
+  // For Curl
+  CURL *curl_handle;
+
   // For raw data
   char *buffer;
   size_t buffer_counter;
