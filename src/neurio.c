@@ -164,7 +164,6 @@ int parse_neurio_data(struct DataStruct *data)
   debug_print("Timestamp = %s\n", _tss);
 
   string_to_epoch(_tss, &data->timestamp);
-  json_object_put(ts); // Decrement reference count
 
   // Get the sensors
   struct json_object *cts;
@@ -226,6 +225,7 @@ int parse_neurio_data(struct DataStruct *data)
   debug_print("total : pf\t=%lf\n", data->reading[n].pf);
   debug_print("total : I\t=%lf A\n", data->reading[n].I);
 
+  json_object_put(jobj); // Decrement reference count
   json_tokener_free(tok);
   return true;
 }
@@ -527,6 +527,7 @@ int main(int argc, char* argv[])
     nanosleep(&data.sleep, NULL);
   }
 
+  free(data.buffer);
 
   curl_easy_cleanup(data.curl_handle);
   curl_global_cleanup();
