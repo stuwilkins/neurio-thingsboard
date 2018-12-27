@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <getopt.h> 
 #include <unistd.h>
+#include <signal.h>
 
 #include <MQTTClient.h>
 #include <curl/curl.h>
@@ -38,6 +39,13 @@ static int verbose_flag = 1;
 #else
 static int verbose_flag = 0;
 #endif
+
+volatile int sigterm = false;
+
+void term(int signum)
+{
+  sigterm = true;
+}
 
 int string_to_epoch(const char* str, unsigned long *epoch)
 {
@@ -432,6 +440,14 @@ int main(int argc, char* argv[])
     return false;
   }
 
+
+  // Now setup sigterm handler
+  struct sigaction action;
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = term;
+  sigaction(SIGTERM, &action, NULL);
+  sigaction(SIGINT,  &action, NULL);
+
   for(;;)
   {
     if(!get_neurio_data(&data))
@@ -443,6 +459,11 @@ int main(int argc, char* argv[])
       continue;
     }
     publish_to_thingsboard(&data);
+    if(sigterm)
+    {
+      debug_statement("Exiting loop due to signal.\n");
+      break;
+    }
     nanosleep(&data.sleep, NULL);
   }
 
