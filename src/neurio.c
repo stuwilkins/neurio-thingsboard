@@ -41,6 +41,7 @@ static int verbose_flag = 0;
 #endif
 
 volatile int sigterm = false;
+volatile MQTTClient_deliveryToken deliveredtoken;
 
 void term(int signum)
 {
@@ -266,6 +267,28 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
   }
 }
 
+void mqtt_delivered(void *context, MQTTClient_deliveryToken dt)
+{
+  debug_print("Message with token value %d delivery confirmed\n", dt);
+  deliveredtoken = dt;
+}
+
+int mqtt_msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
+{
+  debug_statement("Message arrived\n");
+  debug_print("topic: %s\n", topicName);
+  debug_print("message: %s", (char *)message->payload);
+
+  MQTTClient_freeMessage(&message);
+  MQTTClient_free(topicName);
+  return 1;
+}
+
+void mqtt_connlost(void *context, char *cause)
+{
+  debug_print("Connection lost cause: %s\n", cause);
+}
+
 int publish_to_thingsboard(struct DataStruct *data)
 {
   int rc;
@@ -300,15 +323,13 @@ int publish_to_thingsboard(struct DataStruct *data)
     debug_print("MQTTClient_publishMessage failed %d\n", rc);
   }
 
-  debug_print("Waiting for up to %d seconds for publication of %s\n"
-      "on topic %s for client with ClientID: %s\n",
-      (int)(TIMEOUT/1000), payload_buffer, TOPIC, data->mqtt_client_id);
-
-  rc = MQTTClient_waitForCompletion(data->client, token, TIMEOUT);
-  if(rc != MQTTCLIENT_SUCCESS)
+  while(deliveredtoken != token)
   {
-    debug_print("MQTTClient_waitForCompletion failed %d\n", rc);
-  }
+    if(sigterm)
+    {
+      break;
+    }
+  };
 
   debug_print("Message with delivery token %d delivered\n", token);
   return true;
@@ -458,6 +479,8 @@ int main(int argc, char* argv[])
   conn_opts.cleansession = 1;
   conn_opts.username = data.mqtt_token;
   conn_opts.password = "";
+
+  MQTTClient_setCallbacks(data.client, NULL, mqtt_connlost, mqtt_msgarrvd, mqtt_delivered);
 
   int rc;
   if ((rc = MQTTClient_connect(data.client, &conn_opts)) != MQTTCLIENT_SUCCESS)
