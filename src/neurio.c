@@ -239,31 +239,31 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
   char _buffer[PAYLOAD_MAX] = "";
 
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_voltage\":\"%lf\",",
+      "\"%s_voltage\":%lf,",
       name, reading->V);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_real_power\":\"%lf\",",
+      "\"%s_real_power\":%lf,",
       name, reading->P);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_imag_power\":\"%lf\",",
+      "\"%s_imag_power\":%lf,",
       name, reading->Q);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_pf\":\"%lf\",",
+      "\"%s_pf\":%lf,",
       name, reading->pf);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_phi\":\"%lf\",",
+      "\"%s_phi\":%lf,",
       name, reading->phi);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_app_power\":\"%lf\",",
+      "\"%s_app_power\":%lf,",
       name, reading->S);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
   snprintf(_buffer, PAYLOAD_MAX, 
-      "\"%s_current\":\"%lf\"",
+      "\"%s_current\":%lf",
       name, reading->I);
   strncat(buffer, _buffer, PAYLOAD_MAX-1);
 
