@@ -425,7 +425,7 @@ int main(int argc, char* argv[])
       case 's':
         sscanf(optarg, "%ld", &sleep);
         data.sleep.tv_sec = sleep / 1000;
-        data.sleep.tv_nsec = (sleep % 1000) * 1000L;
+        data.sleep.tv_nsec = (sleep % 1000) * 1000000L;
         debug_print("sleep = %ld, %ld\n", data.sleep.tv_sec, 
             data.sleep.tv_nsec);
       case '?':
