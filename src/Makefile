@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I. -Wall -g -std=c99 -DDEBUG
+CFLAGS=-I. -Wall -std=c99 -DDEBUG -O3
 LDFLAGS=-lpaho-mqtt3c -lcurl -ljson-c -lm 
 DEPS=neurio.h
 src = $(wildcard *.c)
