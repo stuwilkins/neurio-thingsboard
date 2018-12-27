@@ -309,7 +309,8 @@ int publish_to_thingsboard(struct DataStruct *data)
 int main(int argc, char* argv[])
 {
   struct DataStruct data;
-
+  int parse = 1;
+  int publish = 1;
 
   debug_statement("Starting .....\n");
 
@@ -331,19 +332,21 @@ int main(int argc, char* argv[])
 		static struct option long_options[] =
 		{
 			/* These options set a flag. */
-			{"verbose",   no_argument,       0, 'v'},
-			{"quiet",     no_argument,       0, 'q'},
-			{"token",     required_argument, 0, 't'},
-			{"host",      required_argument, 0, 'h'},
-			{"port",      required_argument, 0, 'p'},
-			{"neurio",    required_argument, 0, 'n'},
-			{"sleep",     required_argument, 0, 's'},
-			{"buffer",    required_argument, 0, 'b'},
+			{"no-parse",     no_argument,       0, 'x'},
+			{"no-publish",   no_argument,       0, 'y'},
+			{"verbose",      no_argument,       0, 'v'},
+			{"quiet",        no_argument,       0, 'q'},
+			{"token",        required_argument, 0, 't'},
+			{"host",         required_argument, 0, 'h'},
+			{"port",         required_argument, 0, 'p'},
+			{"neurio",       required_argument, 0, 'n'},
+			{"sleep",        required_argument, 0, 's'},
+			{"buffer",       required_argument, 0, 'b'},
 			{0, 0, 0, 0}
 		};
 
 		int option_index = 0;
-    int c = getopt_long(argc, argv, "qvb:t:h:p:n:s:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "xyqvb:t:h:p:n:s:", long_options, &option_index);
 
     if(c == -1)
     {
@@ -358,6 +361,12 @@ int main(int argc, char* argv[])
           break;
         }
         debug_print("option %s", long_options[option_index].name);
+        break;
+      case 'x':
+        parse = 0;
+        break;
+      case 'y':
+        publish = 0;
         break;
       case 'v':
         verbose_flag = 1;
@@ -463,11 +472,19 @@ int main(int argc, char* argv[])
     {
       continue;
     }
-    if(!parse_neurio_data(&data))
+    if(parse)
     {
-      continue;
+      if(!parse_neurio_data(&data))
+      {
+        continue;
+      }
+
+      if(publish)
+      {
+        publish_to_thingsboard(&data);
+      }
     }
-    publish_to_thingsboard(&data);
+
     if(sigterm)
     {
       debug_statement("Exiting loop due to signal.\n");
