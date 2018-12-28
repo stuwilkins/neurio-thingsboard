@@ -405,7 +405,7 @@ int main(int argc, char* argv[])
   int parse = 1;
   int publish = 1;
 
-  debug_statement("Starting .....\n");
+  fprintf(stderr, "Starting %s\n", argv[0]);
 
   // Set defaults
 
@@ -474,7 +474,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  debug_print("config_file = %s\n", data.config_file);
+  fprintf(stderr, "Reading config from %s\n", data.config_file);
   read_config(&data, data.config_file);
 
   // Dump config 
@@ -540,10 +540,9 @@ int main(int argc, char* argv[])
   int rc;
   if ((rc = MQTTClient_connect(data.client, &conn_opts)) != MQTTCLIENT_SUCCESS)
   {
-    printf("Failed to connect, return code %d\n", rc);
-    return false;
+    fprintf(stderr, "MQTT Failed to connect, return code %d\n", rc);
+    return EXIT_FAILURE;
   }
-
 
   // Now setup sigterm handler
   struct sigaction action;
@@ -573,7 +572,7 @@ int main(int argc, char* argv[])
 
     if(sigterm)
     {
-      debug_statement("Exiting loop due to signal.\n");
+      fprintf(stderr, "Exiting loop due to signal.\n");
       break;
     }
     nanosleep(&data.sleep, NULL);
@@ -586,6 +585,8 @@ int main(int argc, char* argv[])
 
   MQTTClient_disconnect(data.client, 10000);
   MQTTClient_destroy(&data.client);
+
+  fprintf(stderr, "Bye!\n");
 
   return 0;
 }
