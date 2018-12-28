@@ -574,18 +574,23 @@ int main(int argc, char* argv[])
 
     if(!get_neurio_data(&data))
     {
+      fprintf(stderr, "Unable to get neurio data\n");
       continue;
     }
     if(parse)
     {
       if(!parse_neurio_data(&data))
       {
+        fprintf(stderr, "Unable to parse neurio data\n");
         continue;
       }
 
       if(publish)
       {
-        publish_to_thingsboard(&data);
+        if(!publish_to_thingsboard(&data))
+        {
+          fprintf(stderr, "Unable to publish to thingsboard\n");
+        }
       }
     }
 
