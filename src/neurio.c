@@ -338,7 +338,8 @@ int publish_to_thingsboard(struct DataStruct *data)
   rc = MQTTClient_publishMessage(data->client, TOPIC, &pubmsg, &token);
   if(rc != MQTTCLIENT_SUCCESS)
   {
-    debug_print("MQTTClient_publishMessage failed %d\n", rc);
+    fprintf(stderr, "MQTTClient_publishMessage failed %d\n", rc);
+    return false;
   }
 
   while(deliveredtoken != token)
