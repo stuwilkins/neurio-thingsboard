@@ -385,6 +385,14 @@ int read_config(struct DataStruct *data, const char *config_file)
   {
     strncpy(data->neurio_host, str, STR_MAX);
   }
+  if(config_lookup_string(&cfg, "neurio.username", &str))
+  {
+    strncpy(data->neurio_username, str, STR_MAX);
+  }
+  if(config_lookup_string(&cfg, "neurio.password", &str))
+  {
+    strncpy(data->neurio_password, str, STR_MAX);
+  }
   if(config_lookup_string(&cfg, "mqtt.host", &str))
   {
     strncpy(data->mqtt_host, str, STR_MAX);
@@ -415,6 +423,8 @@ int main(int argc, char* argv[])
   strncpy(data.mqtt_username, DEFAULT_MQTT_USERNAME, STR_MAX);
   strncpy(data.mqtt_password, DEFAULT_MQTT_PASSWORD, STR_MAX);
   strncpy(data.config_file, DEFAULT_CONFIG_FILE, STR_MAX);
+  strncpy(data.neurio_username, DEFAULT_NEURIO_USERNAME, STR_MAX);
+  strncpy(data.neurio_password, DEFAULT_NEURIO_PASSWORD, STR_MAX);
   data.sleep.tv_sec = DEFAULT_SLEEP;
   data.sleep.tv_nsec = 0;
   data.buffer_size = 2048 * 1024;
@@ -516,6 +526,9 @@ int main(int argc, char* argv[])
   curl_easy_setopt(data.curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   curl_easy_setopt(data.curl_handle, CURLOPT_WRITEDATA, (void *)&data);
   curl_easy_setopt(data.curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+  curl_easy_setopt(data.curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+  curl_easy_setopt(data.curl_handle, CURLOPT_USERNAME, data.neurio_username);
+  curl_easy_setopt(data.curl_handle, CURLOPT_PASSWORD, data.neurio_password);
 
   // Setup MQTT
   snprintf(data.mqtt_client_id, STR_MAX, "%s_%ld", 
@@ -553,6 +566,12 @@ int main(int argc, char* argv[])
 
   for(;;)
   {
+    if(sigterm)
+    {
+      fprintf(stderr, "Exiting loop due to signal.\n");
+      break;
+    }
+
     if(!get_neurio_data(&data))
     {
       continue;
@@ -570,12 +589,10 @@ int main(int argc, char* argv[])
       }
     }
 
-    if(sigterm)
+    if(!sigterm)
     {
-      fprintf(stderr, "Exiting loop due to signal.\n");
-      break;
+      nanosleep(&data.sleep, NULL); 
     }
-    nanosleep(&data.sleep, NULL);
   }
 
   free(data.buffer);

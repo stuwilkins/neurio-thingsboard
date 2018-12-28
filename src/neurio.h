@@ -44,6 +44,8 @@
 #define DEFAULT_NEURIO_HOST     "192.168.1.1"
 #define DEFAULT_SLEEP           2
 #define DEFAULT_CONFIG_FILE     "neurio-thingsboard.cfg"
+#define DEFAULT_NEURIO_USERNAME ""
+#define DEFAULT_NEURIO_PASSWORD ""
 
 #define debug_print(fmt, ...) \
   do { if (verbose_flag) fprintf(stderr, "%s:%d:%s(): " fmt, \
@@ -88,6 +90,8 @@ struct DataStruct {
 
   // For neurio
   char neurio_host[STR_MAX];
+  char neurio_username[STR_MAX];
+  char neurio_password[STR_MAX];
 
   // Data
   int use_timestamp;
