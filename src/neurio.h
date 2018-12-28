@@ -39,9 +39,11 @@
 
 #define DEFAULT_MQTT_PORT       1883
 #define DEFAULT_MQTT_HOST       "localhost"
-#define DEFAULT_MQTT_TOKEN      ""
+#define DEFAULT_MQTT_USERNAME   ""
+#define DEFAULT_MQTT_PASSWORD   ""
 #define DEFAULT_NEURIO_HOST     "192.168.1.1"
 #define DEFAULT_SLEEP           2
+#define DEFAULT_CONFIG_FILE     "neurio-thingsboard.cfg"
 
 #define debug_print(fmt, ...) \
   do { if (verbose_flag) fprintf(stderr, "%s:%d:%s(): " fmt, \
@@ -62,6 +64,9 @@ struct sensor_reading {
 };
 
 struct DataStruct {
+  // For config file
+  char config_file[STR_MAX];
+
   // For Curl
   CURL *curl_handle;
 
@@ -75,7 +80,8 @@ struct DataStruct {
 
   // For MQTT
   MQTTClient client;
-  char mqtt_token[STR_MAX];
+  char mqtt_username[STR_MAX];
+  char mqtt_password[STR_MAX];
   char mqtt_host[STR_MAX];
   char mqtt_client_id[STR_MAX];
   int mqtt_port;

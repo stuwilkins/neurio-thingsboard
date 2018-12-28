@@ -31,6 +31,7 @@
 #include <MQTTClient.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
+#include <libconfig.h>
 
 #include "neurio.h"
 
@@ -352,6 +353,52 @@ int publish_to_thingsboard(struct DataStruct *data)
   return true;
 }
 
+int read_config(struct DataStruct *data, const char *config_file)
+{
+  config_t cfg;
+  const char *str;
+
+  config_init(&cfg);
+
+  if(!config_read_file(&cfg, config_file))
+  {
+    fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg),
+        config_error_line(&cfg), config_error_text(&cfg));
+    config_destroy(&cfg);
+    return false;
+  }
+
+  long long sleep;
+  if(config_lookup_int64(&cfg, "interval", &sleep))
+  {
+    data->sleep.tv_sec = sleep / 1000;
+    data->sleep.tv_nsec = (sleep % 1000) * 1000000L;
+  }
+
+  int buffer_size;
+  if(config_lookup_int(&cfg, "buffer_size", &buffer_size))
+  {
+    data->buffer_size = (size_t)buffer_size;
+  }
+
+  if(config_lookup_string(&cfg, "neurio.host", &str))
+  {
+    strncpy(data->neurio_host, str, STR_MAX);
+  }
+  if(config_lookup_string(&cfg, "mqtt.host", &str))
+  {
+    strncpy(data->mqtt_host, str, STR_MAX);
+  }
+  if(config_lookup_string(&cfg, "mqtt.token", &str))
+  {
+    strncpy(data->mqtt_username, str, STR_MAX);
+  }
+  config_lookup_int(&cfg, "mqtt.port", &data->mqtt_port);
+
+  config_destroy(&cfg);
+  return true;
+}
+
 int main(int argc, char* argv[])
 {
   struct DataStruct data;
@@ -365,7 +412,9 @@ int main(int argc, char* argv[])
   data.mqtt_port = DEFAULT_MQTT_PORT;
   strncpy(data.mqtt_host, DEFAULT_MQTT_HOST, STR_MAX);
   strncpy(data.neurio_host, DEFAULT_NEURIO_HOST, STR_MAX);
-  strncpy(data.mqtt_token, DEFAULT_MQTT_TOKEN, STR_MAX);
+  strncpy(data.mqtt_username, DEFAULT_MQTT_USERNAME, STR_MAX);
+  strncpy(data.mqtt_password, DEFAULT_MQTT_PASSWORD, STR_MAX);
+  strncpy(data.config_file, DEFAULT_CONFIG_FILE, STR_MAX);
   data.sleep.tv_sec = DEFAULT_SLEEP;
   data.sleep.tv_nsec = 0;
   data.buffer_size = 2048 * 1024;
@@ -375,26 +424,18 @@ int main(int argc, char* argv[])
 
   while(1)
   {
-    long int sleep;
 		static struct option long_options[] =
 		{
-			/* These options set a flag. */
 			{"no-parse",     no_argument,       0, 'x'},
 			{"no-publish",   no_argument,       0, 'y'},
 			{"verbose",      no_argument,       0, 'v'},
 			{"quiet",        no_argument,       0, 'q'},
-			{"token",        required_argument, 0, 't'},
-			{"host",         required_argument, 0, 'h'},
-			{"port",         required_argument, 0, 'p'},
-			{"neurio",       required_argument, 0, 'n'},
-			{"sleep",        required_argument, 0, 's'},
-			{"buffer",       required_argument, 0, 'b'},
-			{"no-timestamp", no_argument      , 0, 'm'},
+			{"config-file",  required_argument, 0, 'c'},
 			{0, 0, 0, 0}
 		};
 
 		int option_index = 0;
-    int c = getopt_long(argc, argv, "mxyqvb:t:h:p:n:s:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "c:xyqv", long_options, &option_index);
 
     if(c == -1)
     {
@@ -422,31 +463,9 @@ int main(int argc, char* argv[])
       case 'q':
         verbose_flag = false;
         break;
-      case 'm':
-        data.use_timestamp = false;
+      case 'c':
+        strncpy(data.config_file, optarg, STR_MAX);
         break;
-      case 't':
-        strncpy(data.mqtt_token, optarg, STR_MAX);
-        debug_print("mqtt_token = %s\n", data.mqtt_token);
-        break;
-      case 'h':
-        strncpy(data.mqtt_host, optarg, STR_MAX);
-        debug_print("mqtt_host = %s\n", data.mqtt_host);
-        break;
-      case 'p':
-        sscanf(optarg, "%d", &data.mqtt_port);
-        debug_print("mqtt_port = %d\n", data.mqtt_port);
-        break;
-      case 'n':
-        strncpy(data.neurio_host, optarg, STR_MAX);
-        debug_print("neurio_host = %s\n", data.neurio_host);
-        break;
-      case 's':
-        sscanf(optarg, "%ld", &sleep);
-        data.sleep.tv_sec = sleep / 1000;
-        data.sleep.tv_nsec = (sleep % 1000) * 1000000L;
-        debug_print("sleep = %ld, %ld\n", data.sleep.tv_sec, 
-            data.sleep.tv_nsec);
       case '?':
         break;
       default:
@@ -454,6 +473,20 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
   }
+
+  debug_print("config_file = %s\n", data.config_file);
+  read_config(&data, data.config_file);
+
+  // Dump config 
+  
+  debug_print("mqtt_username = %s\n", data.mqtt_username);
+  debug_print("mqtt_password = %s\n", data.mqtt_password);
+  debug_print("mqtt_host = %s\n", data.mqtt_host);
+  debug_print("mqtt_port = %d\n", data.mqtt_port);
+  debug_print("neurio_host = %s\n", data.neurio_host);
+  debug_print("sleep = %ld, %ld\n", data.sleep.tv_sec, 
+      data.sleep.tv_nsec);
+  debug_print("buffer_size = %d\n", (int)data.buffer_size);
 
   // Allocate CURL buffer.
 
@@ -499,8 +532,8 @@ int main(int argc, char* argv[])
 
   conn_opts.keepAliveInterval = 20;
   conn_opts.cleansession = 1;
-  conn_opts.username = data.mqtt_token;
-  conn_opts.password = "";
+  conn_opts.username = data.mqtt_username;
+  conn_opts.password = data.mqtt_password;
 
   MQTTClient_setCallbacks(data.client, NULL, mqtt_connlost, mqtt_msgarrvd, mqtt_delivered);
 

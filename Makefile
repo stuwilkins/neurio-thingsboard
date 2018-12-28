@@ -6,12 +6,15 @@ ifeq ($(PREFIX),)
 	PREFIX := /usr/local
 endif
 
-.PHONY: $(SUBDIRS) all install
+.PHONY: $(SUBDIRS) all install clean
 
 all: $(SUBDIRS)
 
 $(SUBDIRS):
-		$(MAKE) -C $@
+	$(MAKE) -C $@
+
+clean:
+	$(MAKE) -C $(SUBDIRS) clean
 
 install: neurio-thingsboard
 	$(INSTALL) -m 0755 bin/neurio-thingsboard $(PREFIX)/bin
