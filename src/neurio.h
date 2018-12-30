@@ -27,7 +27,8 @@
 #define true                    -1
 #define false                   0
 
-#define TOPIC                   "v1/devices/me/telemetry"
+//#define TOPIC                   "v1/devices/me/telemetry"
+#define TOPIC                   "home/neurio/data"
 #define QOS                     1
 #define TIMEOUT                 100000L
 
@@ -81,7 +82,8 @@ struct DataStruct {
   struct timespec sleep;
 
   // For MQTT
-  MQTTClient client;
+  MQTTAsync mqtt_client;
+  MQTTAsync_connectOptions mqtt_conn_opts;
   char mqtt_username[STR_MAX];
   char mqtt_password[STR_MAX];
   char mqtt_host[STR_MAX];

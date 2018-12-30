@@ -28,7 +28,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include <MQTTClient.h>
+#include <MQTTAsync.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
 #include <libconfig.h>
@@ -42,7 +42,7 @@ static int verbose_flag = 0;
 #endif
 
 volatile int sigterm = false;
-volatile MQTTClient_deliveryToken deliveredtoken;
+volatile MQTTAsync_token deliveredtoken;
 
 void term(int signum)
 {
@@ -274,25 +274,48 @@ void add_sensor(char *buffer, const char* name, struct sensor_reading *reading,
   }
 }
 
-void mqtt_delivered(void *context, MQTTClient_deliveryToken dt)
+//void mqtt_delivered(void *context, MQTTAsync_deliveryToken dt)
+//{
+//  debug_print("Message with token value %d delivery confirmed\n", dt);
+//  deliveredtoken = dt;
+//}
+
+//int mqtt_msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
+//{
+//  debug_statement("Message arrived\n");
+//  debug_print("topic: %s\n", topicName);
+//  debug_print("message: %s", (char *)message->payload);
+//
+//  MQTTAsync_freeMessage(&message);
+//  MQTTAsync_free(topicName);
+//  return 1;
+//}
+
+void mqtt_on_connection(void *context, MQTTAsync_successData* response)
 {
-  debug_print("Message with token value %d delivery confirmed\n", dt);
-  deliveredtoken = dt;
+  fprintf(stderr, "MQTT Connection established to %s\n",
+      response->alt.connect.serverURI);
 }
 
-int mqtt_msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
+void mqtt_on_send(void* context, MQTTAsync_successData* response)
 {
-  debug_statement("Message arrived\n");
-  debug_print("topic: %s\n", topicName);
-  debug_print("message: %s", (char *)message->payload);
-
-  MQTTClient_freeMessage(&message);
-  MQTTClient_free(topicName);
-  return 1;
+  debug_print("Message with token value %d delivery confirmed\n", response->token);
 }
 
-void mqtt_connlost(void *context, char *cause)
+void mqtt_on_no_send(void *context, MQTTAsync_failureData *response)
 {
+  debug_print("Message with token value %d delivery failed\n", response->token);
+}
+
+void mqtt_delivery_complete(void* context, MQTTAsync_token token)
+{
+  debug_print("Message with token value %d delivery complete\n", token);
+}
+
+void mqtt_on_connection_lost(void *context, char *cause)
+{
+  //struct DataStruct *data = (struct DataStruct*)context;
+
   debug_print("Connection lost cause: %s\n", cause);
 }
 
@@ -311,7 +334,6 @@ int publish_to_thingsboard(struct DataStruct *data)
     strncat(payload_buffer, "{", PAYLOAD_MAX-1);
   }
 
-
   for(int i=0;i<NUM_SENSORS;i++)
   {
     char name[20];
@@ -328,29 +350,23 @@ int publish_to_thingsboard(struct DataStruct *data)
 
   debug_print("payload [%d] : %s\n", (int)strlen(payload_buffer), payload_buffer);
 
-  MQTTClient_message pubmsg = MQTTClient_message_initializer;
+  MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
   pubmsg.payload = payload_buffer;
   pubmsg.payloadlen = strlen(payload_buffer);
   pubmsg.qos = QOS;
   pubmsg.retained = 0;
+  MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+  opts.onSuccess = mqtt_on_send;
+  opts.onFailure = mqtt_on_no_send;
+  opts.context = (void *)data;
 
-  MQTTClient_deliveryToken token;
-  rc = MQTTClient_publishMessage(data->client, TOPIC, &pubmsg, &token);
+  rc = MQTTAsync_sendMessage(data->mqtt_client, TOPIC, &pubmsg, &opts);
   if(rc != MQTTCLIENT_SUCCESS)
   {
-    fprintf(stderr, "MQTTClient_publishMessage failed %d\n", rc);
+    debug_print("MQTTAsync_publishMessage failed %d\n", rc);
     return false;
   }
-
-  while(deliveredtoken != token)
-  {
-    if(sigterm)
-    {
-      break;
-    }
-  };
-
-  debug_print("Message with delivery token %d delivered\n", token);
+  
   return true;
 }
 
@@ -367,6 +383,12 @@ int read_config(struct DataStruct *data, const char *config_file)
         config_error_line(&cfg), config_error_text(&cfg));
     config_destroy(&cfg);
     return false;
+  }
+
+  int timestamp;
+  if(config_lookup_bool(&cfg, "timestamp", &timestamp))
+  {
+    data->use_timestamp = timestamp;
   }
 
   long long sleep;
@@ -539,22 +561,25 @@ int main(int argc, char* argv[])
   char _address[STR_MAX];
   snprintf(_address, STR_MAX, "tcp://%s:%d", data.mqtt_host, data.mqtt_port);
 
-  MQTTClient_create(&data.client, _address, data.mqtt_client_id,
+  MQTTAsync_create(&data.mqtt_client, _address, data.mqtt_client_id,
       MQTTCLIENT_PERSISTENCE_NONE, NULL);
 
-  MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+  MQTTAsync_setCallbacks(data.mqtt_client, (void *)&data, 
+      mqtt_on_connection_lost, NULL, mqtt_delivery_complete);
 
-  conn_opts.keepAliveInterval = 20;
-  conn_opts.cleansession = 1;
-  conn_opts.username = data.mqtt_username;
-  conn_opts.password = data.mqtt_password;
-
-  MQTTClient_setCallbacks(data.client, NULL, mqtt_connlost, mqtt_msgarrvd, mqtt_delivered);
+  MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+  data.mqtt_conn_opts = conn_opts;
+  data.mqtt_conn_opts.keepAliveInterval = 5;
+  data.mqtt_conn_opts.cleansession = 1;
+  data.mqtt_conn_opts.username = data.mqtt_username;
+  data.mqtt_conn_opts.password = data.mqtt_password;
+  data.mqtt_conn_opts.onSuccess = mqtt_on_connection;
+  data.mqtt_conn_opts.automaticReconnect = 1;
 
   int rc;
-  if ((rc = MQTTClient_connect(data.client, &conn_opts)) != MQTTCLIENT_SUCCESS)
+  if ((rc = MQTTAsync_connect(data.mqtt_client, &data.mqtt_conn_opts)) != MQTTCLIENT_SUCCESS)
   {
-    fprintf(stderr, "MQTT Failed to connect, return code %d\n", rc);
+    fprintf(stderr, "MQTT Failed to start connect, return code %d\n", rc);
     return EXIT_FAILURE;
   }
 
@@ -606,8 +631,7 @@ int main(int argc, char* argv[])
   curl_easy_cleanup(data.curl_handle);
   curl_global_cleanup();
 
-  MQTTClient_disconnect(data.client, 10000);
-  MQTTClient_destroy(&data.client);
+  MQTTAsync_destroy(&data.mqtt_client);
 
   fprintf(stderr, "Bye!\n");
 

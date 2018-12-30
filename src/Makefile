@@ -3,7 +3,7 @@ VPATH = $(BIN_DIR)
 
 CC=gcc
 CFLAGS += -I. -Wall -std=c99 -O3 
-LDFLAGS += -lpaho-mqtt3c -lcurl -ljson-c -lm -lconfig
+LDFLAGS += -lpaho-mqtt3a -lcurl -ljson-c -lm -lconfig
 
 DEPS = neurio.h
 
