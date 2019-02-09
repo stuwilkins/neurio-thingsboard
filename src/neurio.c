@@ -360,7 +360,7 @@ int publish_to_thingsboard(struct DataStruct *data)
   opts.onFailure = mqtt_on_no_send;
   opts.context = (void *)data;
 
-  rc = MQTTAsync_sendMessage(data->mqtt_client, TOPIC, &pubmsg, &opts);
+  rc = MQTTAsync_sendMessage(data->mqtt_client, data->mqtt_topic, &pubmsg, &opts);
   if(rc != MQTTCLIENT_SUCCESS)
   {
     debug_print("MQTTAsync_publishMessage failed %d\n", rc);
@@ -420,9 +420,17 @@ int read_config(struct DataStruct *data, const char *config_file)
   {
     strncpy(data->mqtt_host, str, STR_MAX);
   }
-  if(config_lookup_string(&cfg, "mqtt.token", &str))
+  if(config_lookup_string(&cfg, "mqtt.username", &str))
   {
     strncpy(data->mqtt_username, str, STR_MAX);
+  }
+  if(config_lookup_string(&cfg, "mqtt.password", &str))
+  {
+    strncpy(data->mqtt_password, str, STR_MAX);
+  }
+  if(config_lookup_string(&cfg, "mqtt.topic", &str))
+  {
+    strncpy(data->mqtt_topic, str, STR_MAX);
   }
   config_lookup_int(&cfg, "mqtt.port", &data->mqtt_port);
 
@@ -445,6 +453,7 @@ int main(int argc, char* argv[])
   strncpy(data.neurio_host, DEFAULT_NEURIO_HOST, STR_MAX);
   strncpy(data.mqtt_username, DEFAULT_MQTT_USERNAME, STR_MAX);
   strncpy(data.mqtt_password, DEFAULT_MQTT_PASSWORD, STR_MAX);
+  strncpy(data.mqtt_topic, DEFAULT_MQTT_TOPIC, STR_MAX);
   strncpy(data.config_file, DEFAULT_CONFIG_FILE, STR_MAX);
   strncpy(data.neurio_username, DEFAULT_NEURIO_USERNAME, STR_MAX);
   strncpy(data.neurio_password, DEFAULT_NEURIO_PASSWORD, STR_MAX);
@@ -514,6 +523,7 @@ int main(int argc, char* argv[])
   
   debug_print("mqtt_username = %s\n", data.mqtt_username);
   debug_print("mqtt_password = %s\n", data.mqtt_password);
+  debug_print("mqtt_topic = %s\n", data.mqtt_topic);
   debug_print("mqtt_host = %s\n", data.mqtt_host);
   debug_print("mqtt_port = %d\n", data.mqtt_port);
   debug_print("neurio_host = %s\n", data.neurio_host);

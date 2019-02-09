@@ -27,8 +27,6 @@
 #define true                    -1
 #define false                   0
 
-//#define TOPIC                   "v1/devices/me/telemetry"
-#define TOPIC                   "home/neurio/data"
 #define QOS                     1
 #define TIMEOUT                 100000L
 
@@ -42,6 +40,7 @@
 #define DEFAULT_MQTT_HOST       "localhost"
 #define DEFAULT_MQTT_USERNAME   ""
 #define DEFAULT_MQTT_PASSWORD   ""
+#define DEFAULT_MQTT_TOPIC      "v1/devices/me/telemetry"
 #define DEFAULT_NEURIO_HOST     "192.168.1.1"
 #define DEFAULT_SLEEP           2
 #define DEFAULT_CONFIG_FILE     "neurio-thingsboard.cfg"
@@ -86,6 +85,7 @@ struct DataStruct {
   MQTTAsync_connectOptions mqtt_conn_opts;
   char mqtt_username[STR_MAX];
   char mqtt_password[STR_MAX];
+  char mqtt_topic[STR_MAX];
   char mqtt_host[STR_MAX];
   char mqtt_client_id[STR_MAX];
   int mqtt_port;
